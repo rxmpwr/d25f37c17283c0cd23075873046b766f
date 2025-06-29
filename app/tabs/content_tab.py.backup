@@ -828,7 +828,7 @@ This guide provides a solid foundation, but transformation happens faster with p
         # Reset generate button
         self.generate_content_btn.configure(state="normal", text="📖 Generate Viral Content")
         
-        messagebox.showinfo("Thành công", "Viral content generated successfully!")
+        messagebox.showinfo("Success", "Viral content generated successfully!")
 
     def _show_generation_error(self, error_message: str):
         """Show error message for content generation."""

@@ -352,7 +352,7 @@ class PromptSettingsPanel:
                 json.dump(settings_data, f, ensure_ascii=False, indent=2)
                 
             from tkinter import messagebox
-            messagebox.showinfo("Thành công", "Settings saved successfully!")
+            messagebox.showinfo("Success", "Settings saved successfully!")
             
         except Exception as e:
             from tkinter import messagebox

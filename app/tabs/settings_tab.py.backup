@@ -259,7 +259,7 @@ class SettingsTabManager:
         
         # Quality settings
         quality_options = ["Balanced", "Quality", "Speed"]
-        ctk.CTkLabel(gen_frame, text="Chất lượng:").grid(
+        ctk.CTkLabel(gen_frame, text="Quality:").grid(
             row=3, column=0, padx=20, pady=10, sticky="w"
         )
         for i, option in enumerate(quality_options):
@@ -300,7 +300,7 @@ class SettingsTabManager:
         
         save_btn = ctk.CTkButton(
             save_frame,
-            text="💾 Lưu Cài Đặt",
+            text="💾 Save Settings",
             command=self.save_all_settings,
             fg_color="#4CAF50",
             hover_color="#45A049",
@@ -697,7 +697,7 @@ class SettingsTabManager:
             
             # Save to file
             if self.config_manager.save_config():
-                messagebox.showinfo("Thành công", "Settings saved successfully!")
+                messagebox.showinfo("Success", "Settings saved successfully!")
             else:
                 messagebox.showerror("Error", "Failed to save settings")
                 
@@ -728,7 +728,7 @@ class SettingsTabManager:
             # Update status labels
             self.update_api_status_labels()
             
-            messagebox.showinfo("Thành công", "All API keys cleared!")
+            messagebox.showinfo("Success", "All API keys cleared!")
             
     def load_saved_keys(self):
         """Load saved API keys from config file."""

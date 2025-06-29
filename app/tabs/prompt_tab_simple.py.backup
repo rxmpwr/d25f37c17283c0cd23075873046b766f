@@ -171,7 +171,7 @@ class PromptTabManager:
     def generate_prompts(self):
         """Generate prompts from analysis data."""
         if not self.analysis_ready:
-            messagebox.showwarning("Không có dữ liệu", "Please complete YouTube analysis first!")
+            messagebox.showwarning("No Data", "Please complete YouTube analysis first!")
             return
             
         analysis_data = self.get_analysis_data()
@@ -309,7 +309,7 @@ Include:
     def export_prompts(self):
         """Export prompts to file."""
         if not self.current_prompts:
-            messagebox.showwarning("Không có dữ liệu", "No prompts to export!")
+            messagebox.showwarning("No Data", "No prompts to export!")
             return
             
         from tkinter import filedialog
@@ -331,14 +331,14 @@ Include:
     def copy_prompts(self):
         """Copy prompts to clipboard."""
         if not self.current_prompts:
-            messagebox.showwarning("Không có dữ liệu", "No prompts to copy!")
+            messagebox.showwarning("No Data", "No prompts to copy!")
             return
             
         try:
             all_text = self.results_text.get("1.0", "end-1c")
             self.tab_frame.clipboard_clear()
             self.tab_frame.clipboard_append(all_text)
-            messagebox.showinfo("Thành công", "Prompts copied to clipboard!")
+            messagebox.showinfo("Success", "Prompts copied to clipboard!")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy: {str(e)}")
         

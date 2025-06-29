@@ -143,38 +143,58 @@ class YouTubeCollector:
             
             # Get videos from uploads playlist
             next_page_token = None
+            
             while len(videos) < max_videos:
-                request = self.youtube_service.playlistItems().list(
-                    part="snippet",
-                    playlistId=uploads_playlist_id,
-                    maxResults=min(50, max_videos - len(videos)),
-                    pageToken=next_page_token
-                )
-                response = request.execute()
-                
-                for item in response['items']:
-                    video_data = {
-                        'video_id': item['snippet']['resourceId']['videoId'],
-                        'title': item['snippet']['title'],
-                        'description': item['snippet']['description'],
-                        'published_at': item['snippet']['publishedAt'],
-                        'channel_id': item['snippet']['channelId'],
-                        'channel_title': item['snippet']['channelTitle'],
-                        'thumbnail_url': item['snippet']['thumbnails']['high']['url']
-                    }
-                    videos.append(video_data)
+                try:
+                    request = self.youtube_service.playlistItems().list(
+                        part="snippet",
+                        playlistId=uploads_playlist_id,
+                        maxResults=min(50, max_videos - len(videos)),
+                        pageToken=next_page_token
+                    )
+                    response = request.execute()
                     
-                next_page_token = response.get('nextPageToken')
-                if not next_page_token:
-                    break
+                    # Log để debug
+                    logger.info(f"Fetched {len(response['items'])} videos, total so far: {len(videos)}")
                     
+                    if not response['items']:
+                        logger.info("No more videos available")
+                        break
+                    
+                    for item in response['items']:
+                        if len(videos) >= max_videos:
+                            break
+                            
+                        video_data = {
+                            'video_id': item['snippet']['resourceId']['videoId'],
+                            'title': item['snippet']['title'],
+                            'description': item['snippet']['description'],
+                            'published_at': item['snippet']['publishedAt'],
+                            'channel_id': item['snippet']['channelId'],
+                            'channel_title': item['snippet']['channelTitle'],
+                            'thumbnail_url': item['snippet']['thumbnails'].get('high', {}).get('url', '')
+                        }
+                        videos.append(video_data)
+                        
+                    next_page_token = response.get('nextPageToken')
+                    if not next_page_token:
+                        logger.info("No more pages available")
+                        break
+                        
+                except HttpError as e:
+                    logger.error(f"Error in pagination: {e}")
+                    if e.resp.status == 403:
+                        logger.warning("API quota exceeded during video fetch")
+                        break
+                        
         except HttpError as e:
             if e.resp.status == 403:
                 logger.warning("API quota exceeded, rotating key...")
                 self._rotate_api_key()
                 return self.get_channel_videos(channel_id, max_videos)
             logger.error(f"Error getting channel videos: {e}")
-            
+        
+        logger.info(f"Total videos collected: {len(videos)} (requested: {max_videos})")
         return videos[:max_videos]
         
     def get_video_details(self, video_id: str) -> Optional[Dict]:

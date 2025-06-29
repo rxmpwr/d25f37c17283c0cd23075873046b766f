@@ -30,7 +30,7 @@ class InputTabManager:
         # Title
         title_label = ctk.CTkLabel(
             self.container,
-            text="Nhập URL Youtube",
+            text="YouTube URL Input",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color="#2B2B2B"
         )
@@ -42,7 +42,7 @@ class InputTabManager:
         
         mode_label = ctk.CTkLabel(
             mode_frame,
-            text="Chế độ phân tích:",
+            text="Analysis Mode:",
             font=ctk.CTkFont(size=14),
             text_color="#666666"
         )
@@ -50,7 +50,7 @@ class InputTabManager:
         
         channel_radio = ctk.CTkRadioButton(
             mode_frame,
-            text="Phân tích kênh",
+            text="Channel Analysis",
             variable=self.analysis_mode,
             value="channel",
             font=ctk.CTkFont(size=14),
@@ -62,7 +62,7 @@ class InputTabManager:
         
         video_radio = ctk.CTkRadioButton(
             mode_frame,
-            text="Phân tích danh sách video",
+            text="Video List Analysis",
             variable=self.analysis_mode,
             value="video",
             font=ctk.CTkFont(size=14),
@@ -78,7 +78,7 @@ class InputTabManager:
         
         input_label = ctk.CTkLabel(
             input_frame,
-            text="📺 Nhập URL kênh Youtube (phân tích video mới nhất từ mỗi kênh):",
+            text="📺 Enter YouTube Channel URLs (analyzes latest videos from each channel):",
             font=ctk.CTkFont(size=14),
             text_color="#666666",
             anchor="w"
@@ -114,7 +114,7 @@ class InputTabManager:
         
         requirements_label = ctk.CTkLabel(
             requirements_frame,
-            text="🎯 Yêu Cầu Phân Tích:",
+            text="🎯 Custom Analysis Requirements (Optional):",
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color="#2196F3",
             anchor="w"
@@ -123,7 +123,7 @@ class InputTabManager:
         
         requirements_hint = ctk.CTkLabel(
             requirements_frame,
-            text="Mô tả những insights cụ thể bạn muốn từ phân tích.",
+            text="Describe what specific insights you want from the analysis. Leave empty for comprehensive analysis.",
             font=ctk.CTkFont(size=12),
             text_color="#666666",
             anchor="w",
@@ -144,7 +144,10 @@ class InputTabManager:
         )
         self.requirements_text.pack(fill="both", expand=True, padx=20, pady=(0, 10))
         
-       
+        # Placeholder text
+        self.requirements_text.insert("1.0", "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc.")
+        self.requirements_text.configure(text_color="#999999")
+        
         # Bind events for placeholder
         self.requirements_text.bind("<FocusIn>", self._on_requirements_focus_in)
         self.requirements_text.bind("<FocusOut>", self._on_requirements_focus_out)
@@ -155,84 +158,32 @@ class InputTabManager:
         
         example_prompts_label = ctk.CTkLabel(
             example_prompts_frame,
-            text="Mẫu nhanh:",
+            text="Quick templates:",
             font=ctk.CTkFont(size=11),
             text_color="#666666"
         )
         example_prompts_label.pack(side="left", padx=(0, 10))
-
-        # Define template questions as class attribute
-        self.template_questions = {
-            "Viral Analysis": """
-        - Những video nào có lượt xem vượt trội so với trung bình?
-        - Video nào tăng view nhanh nhất trong 24h hoặc 7 ngày đầu?
-        - Những yếu tố nào lặp lại trong các video viral (chủ đề, tiêu đề, thumbnail, độ dài, hook đầu video)?
-        - Có trend nào được kênh tận dụng hiệu quả không?
-        - Có đặc điểm gì trong cách dùng video, giọng nói, hoặc âm nhạc giúp video viral không?
-        - Họ có định dạng series hoặc công thức nội dung đặc biệt nào giúp tăng khả năng viral không?
-        - Tỷ lệ giữ chân người xem (retention rate) trong các video viral như thế nào?""",
-            
-            "Audience Insights": """
-        - Đối tượng khán giả chính của kênh là ai (độ tuổi, giới tính, sở thích)?
-        - Khán giả thường bình luận về điều gì nhiều nhất?
-        - Có những pain points hoặc nhu cầu nào của khán giả được nhắc đến nhiều?
-        - Thời điểm nào khán giả tương tác nhiều nhất?
-        - Khán giả thích loại content nào nhất từ kênh này?
-        - Có sự khác biệt nào về audience giữa các loại video khác nhau không?""",
-            
-            "Content Strategy": """
-        - Kênh đang follow chiến lược content nào?
-        - Tần suất đăng video như thế nào?
-        - Có sự nhất quán về chủ đề, style, format không?
-        - Họ có sử dụng content pillars (các trụ cột nội dung chính) không?
-        - Cách họ cân bằng giữa evergreen content và trending content?
-        - Có chiến lược cross-promotion hoặc content series không?
-        - Điểm mạnh và điểm yếu trong content strategy hiện tại?""",
-            
-            "Competitor Analysis": """
-        - So với các kênh cùng niche, kênh này có gì nổi bật?
-        - Những video nào perform tốt hơn competitors?
-        - Có gap nào trong content mà competitors chưa khai thác?
-        - Tốc độ tăng trưởng so với competitors như thế nào?
-        - Unique selling points của kênh là gì?
-        - Có cơ hội nào để differentiate với competitors?"""
-        }
-
-        # Track selected templates
-        self.selected_templates = set()
-
-        # Replace the template buttons section with checkboxes
-        example_prompts_frame = ctk.CTkFrame(requirements_frame, fg_color="transparent")
-        example_prompts_frame.pack(fill="x", padx=20, pady=(0, 20))
-
-        example_prompts_label = ctk.CTkLabel(
-            example_prompts_frame,
-            text="Mẫu nhanh:",
-            font=ctk.CTkFont(size=11),
-            text_color="#666666"
-        )
-        example_prompts_label.pack(side="left", padx=(0, 10))
-
-        # Create checkboxes for templates
-        for template_name in self.template_questions.keys():
-            template_var = ctk.BooleanVar()
-            
-            checkbox = ctk.CTkCheckBox(
+        
+        # Quick template buttons
+        templates = [
+            ("Viral Analysis", "Analyze viral potential, engagement patterns, and content strategies that drive high viewership"),
+            ("Audience Insights", "Focus on audience demographics, behavior, peak engagement times, and content preferences"),
+            ("Content Strategy", "Identify successful content themes, optimal video length, posting frequency, and topic trends"),
+            ("Competitor Analysis", "Compare channel performance, content gaps, unique selling points, and growth opportunities")
+        ]
+        
+        for template_name, template_text in templates:
+            btn = ctk.CTkButton(
                 example_prompts_frame,
                 text=template_name,
-                variable=template_var,
-                command=lambda name=template_name, var=template_var: self._toggle_template(name, var),
-                fg_color="#2196F3",
-                hover_color="#1976D2",
-                checkmark_color="white",
+                command=lambda t=template_text: self._apply_template(t),
+                fg_color="#E3F2FD",
+                text_color="#2196F3",
+                hover_color="#BBDEFB",
+                height=25,
                 font=ctk.CTkFont(size=11)
             )
-            checkbox.pack(side="left", padx=5)
-            
-            # Store reference to checkbox variable
-            setattr(self, f"template_{template_name.replace(' ', '_')}_var", template_var)
-
-        # Quick template buttons
+            btn.pack(side="left", padx=2)
         
         # Action buttons
         buttons_frame = ctk.CTkFrame(self.container, fg_color="transparent")
@@ -241,7 +192,7 @@ class InputTabManager:
         # Clear button
         clear_btn = ctk.CTkButton(
             buttons_frame,
-            text="🗑️ Xóa Tất Cả URLs",
+            text="🗑️ Clear All URLs",
             command=self.clear_urls,
             fg_color="#757575",
             hover_color="#616161",
@@ -254,7 +205,7 @@ class InputTabManager:
         # Validate button
         validate_btn = ctk.CTkButton(
             buttons_frame,
-            text="✓ Kiểm Tra URLs",
+            text="✓ Validate URLs",
             command=self.validate_urls,
             fg_color="#4CAF50",
             hover_color="#45A049",
@@ -267,7 +218,7 @@ class InputTabManager:
         # Load sample button
         sample_btn = ctk.CTkButton(
             buttons_frame,
-            text="📋 Tải URLs Mẫu",
+            text="📋 Load Sample URLs",
             command=self.load_sample_urls,
             fg_color="#FF9800",
             hover_color="#F57C00",
@@ -296,7 +247,7 @@ class InputTabManager:
         
         videos_label = ctk.CTkLabel(
             videos_frame,
-            text="Số video tối đa (mỗi kênh):",
+            text="Max videos (per channel):",
             font=ctk.CTkFont(size=13),
             text_color="#666666"
         )
@@ -320,7 +271,7 @@ class InputTabManager:
         
         comments_label = ctk.CTkLabel(
             comments_frame,
-            text="Số bình luận tối đa (mỗi video):",
+            text="Max comments (per video):",
             font=ctk.CTkFont(size=13),
             text_color="#666666"
         )
@@ -344,7 +295,7 @@ class InputTabManager:
         
         self.transcript_checkbox = ctk.CTkCheckBox(
             checkbox_frame,
-            text="✓ Bao gồm phụ đề",
+            text="✓ Include transcript",
             variable=self.include_transcript,
             font=ctk.CTkFont(size=13),
             text_color="#2B2B2B",
@@ -356,7 +307,7 @@ class InputTabManager:
         
         self.comments_checkbox = ctk.CTkCheckBox(
             checkbox_frame,
-            text="✓ Bao gồm bình luận",
+            text="✓ Include comments",
             variable=self.include_comments,
             font=ctk.CTkFont(size=13),
             text_color="#2B2B2B",
@@ -369,7 +320,7 @@ class InputTabManager:
         # Analyze button
         analyze_btn = ctk.CTkButton(
             self.container,
-            text="🔍 Phân Tích",
+            text="🔍 Analyze",
             command=self.start_analysis,
             fg_color="#E53935",
             hover_color="#D32F2F",
@@ -381,61 +332,17 @@ class InputTabManager:
         
         # Bind text change event
         self.url_text.bind("<KeyRelease>", self._update_url_count)
-
-    def _toggle_template(self, template_name: str, var: ctk.BooleanVar):
-        """Handle template checkbox toggle."""
-        if var.get():
-            # Add template
-            self.selected_templates.add(template_name)
-        else:
-            # Remove template
-            self.selected_templates.discard(template_name)
-        
-        # Update requirements text
-        self._update_requirements_from_templates()
-
-    def _update_requirements_from_templates(self):
-        """Update requirements text based on selected templates."""
-        # Clear current text
-        self.requirements_text.delete("1.0", "end")
-        
-        if not self.selected_templates:
-            # No templates selected, show placeholder
-            self.requirements_text.insert("1.0", "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện.")
-            self.requirements_text.configure(text_color="#999999")
-        else:
-            # Combine questions from selected templates
-            all_questions = []
-            
-            # Add header
-            all_questions.append("Hãy phân tích các video trên kênh YouTube này để xác định các yếu tố khiến một video trở nên lan truyền mạnh mẽ (viral). Trả lời các câu hỏi sau:\n")
-            
-            # Add questions from each selected template
-            for template_name in ["Viral Analysis", "Audience Insights", "Content Strategy", "Competitor Analysis"]:
-                if template_name in self.selected_templates:
-                    all_questions.append(f"\n** {template_name} **")
-                    all_questions.append(self.template_questions[template_name])
-            
-            # Insert combined text
-            combined_text = "\n".join(all_questions)
-            self.requirements_text.insert("1.0", combined_text)
-            self.requirements_text.configure(text_color="#2B2B2B")
-   
+    
     def _on_requirements_focus_in(self, event):
         """Handle focus in event for requirements text."""
-        current_text = self.requirements_text.get("1.0", "end-1c")
-        # Check both English and Vietnamese placeholders
-        if current_text in [
-            "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc.",
-            "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện."
-        ]:
+        if self.requirements_text.get("1.0", "end-1c") == "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc.":
             self.requirements_text.delete("1.0", "end")
             self.requirements_text.configure(text_color="#2B2B2B")
-
+    
     def _on_requirements_focus_out(self, event):
         """Handle focus out event for requirements text."""
         if not self.requirements_text.get("1.0", "end-1c").strip():
-            self.requirements_text.insert("1.0", "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện.")
+            self.requirements_text.insert("1.0", "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc.")
             self.requirements_text.configure(text_color="#999999")
     
     def _apply_template(self, template_text: str):
@@ -460,7 +367,7 @@ class InputTabManager:
         urls = self.get_urls()
         
         if not urls:
-            messagebox.showwarning("Không có URLs", "Vui lòng nhập ít nhất một URL Youtube.")
+            messagebox.showwarning("No URLs", "Please enter at least one YouTube URL.")
             return
         
         valid_urls = []
@@ -518,12 +425,9 @@ class InputTabManager:
     def get_custom_requirements(self) -> str:
         """Get custom analysis requirements."""
         requirements = self.requirements_text.get("1.0", "end-1c").strip()
-        print(f"DEBUG: Raw requirements: '{requirements}'")  # Debug
-        
         # Check if it's the placeholder text
-        #placeholder = "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc."
-        #if requirements == placeholder or requirements == "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện.":
-        #    return ""
+        if requirements == "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc.":
+            return ""
         return requirements
     
     def _is_valid_youtube_url(self, url: str) -> bool:
@@ -541,56 +445,39 @@ class InputTabManager:
     
     def start_analysis(self):
         """Start the analysis process."""
-        print("DEBUG: start_analysis called")
-        
         urls = self.get_urls()
-        print(f"DEBUG: URLs found: {urls}")
         
         if not urls:
-            messagebox.showwarning("Không có URLs", "Vui lòng nhập ít nhất một URL YouTube.")
-            return
-        
-        # Get custom requirements
-        custom_requirements = self.get_custom_requirements()
-        print(f"DEBUG: Requirements: {custom_requirements}")
-        
-        if not custom_requirements:
-            messagebox.showwarning(
-                "Yêu cầu phân tích bắt buộc", 
-                "Vui lòng nhập yêu cầu phân tích cụ thể!"
-            )
+            messagebox.showwarning("No URLs", "Please enter at least one YouTube URL.")
             return
         
         # Validate all URLs
-        print("DEBUG: Validating URLs...")  # Thêm
         invalid_urls = [url for url in urls if not self._is_valid_youtube_url(url)]
-        print(f"DEBUG: Invalid URLs: {invalid_urls}")  # Thêm
-        
         if invalid_urls:
             response = messagebox.askyesno(
-                "Tìm thấy URLs không hợp lệ",
-                f"Tìm thấy {len(invalid_urls)} URLs không hợp lệ. Tiếp tục với URLs hợp lệ?"
+                "Invalid URLs Found",
+                f"Found {len(invalid_urls)} invalid URLs. Continue with valid URLs only?"
             )
             if not response:
                 return
             urls = [url for url in urls if self._is_valid_youtube_url(url)]
         
         if not urls:
-            messagebox.showerror("Không có URLs hợp lệ", "Không tìm thấy URLs YouTube hợp lệ.")
+            messagebox.showerror("No Valid URLs", "No valid YouTube URLs found.")
             return
         
         # Get parameters
-        print("DEBUG: Getting parameters...")  # Thêm
         try:
             max_videos = int(self.max_videos_entry.get())
             max_comments = int(self.max_comments_entry.get())
-            print(f"DEBUG: max_videos={max_videos}, max_comments={max_comments}")  # Thêm
         except ValueError:
-            messagebox.showerror("Tham số không hợp lệ", "Số video và bình luận tối đa phải là số.")
+            messagebox.showerror("Invalid Parameters", "Max videos and comments must be numbers.")
             return
         
+        # Get custom requirements
+        custom_requirements = self.get_custom_requirements()
+        
         # Prepare analysis configuration
-        print("DEBUG: Preparing analysis config...")  # Thêm
         analysis_config = {
             'urls': urls,
             'mode': self.analysis_mode.get(),
@@ -598,16 +485,11 @@ class InputTabManager:
             'max_comments': max_comments,
             'include_transcript': self.include_transcript.get(),
             'include_comments': self.include_comments.get(),
-            'custom_requirements': custom_requirements
+            'custom_requirements': custom_requirements  # NEW: Pass custom requirements
         }
         
-        print(f"DEBUG: Analysis config: {analysis_config}")  # Thêm
-        
         # Call the analyze callback
-        print("DEBUG: Calling analyze_callback...")  # Thêm
         self.analyze_callback(analysis_config)
-        print("DEBUG: analyze_callback completed")  # Thêm
-        
     
     def show(self):
         """Show the tab."""

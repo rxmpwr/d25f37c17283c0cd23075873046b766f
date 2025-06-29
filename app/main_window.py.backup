@@ -51,7 +51,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("Viral Youtube Content Creator")
+        self.title("Viral YouTube Analyzer Pro")
         self.geometry("1500x900")
         self.minsize(1400, 800)
         
@@ -114,7 +114,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
         # Title
         title_label = ctk.CTkLabel(
             header_frame,
-            text="Viral Youtube Content Creator",
+            text="Viral YouTube Analyzer Pro",
             font=ctk.CTkFont(size=32, weight="bold"),
             text_color="#2B2B2B"
         )
@@ -123,7 +123,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
         # Subtitle
         subtitle_label = ctk.CTkLabel(
             header_frame,
-            text="Phân tích nội dung YouTube → Tùy chỉnh prompts → Tạo câu chuyện viral",
+            text="Analyze YouTube content → Customize prompts → Generate viral stories",
             font=ctk.CTkFont(size=14),
             text_color="#666666"
         )
@@ -138,12 +138,12 @@ class YouTubeAnalyzerApp(ctk.CTk):
         # Tab buttons
         self.tab_buttons = {}
         tabs = [
-            ("input", "🎯 Cấu Hình Đầu Vào", 0),
-            ("analysis", "📊 Kết Quả Phân Tích", 1),
-            ("prompt", "✏️ Tạo Prompts", 2),
-            ("topic", "💡 Tạo Chủ Đề", 3),
-            ("content", "📝 Tạo Nội Dung", 4),
-            ("settings", "⚙️ Cài Đặt", 5)
+            ("input", "🎯 Input Configuration", 0),
+            ("analysis", "📊 Analysis Result", 1),
+            ("prompt", "✏️ Create Prompts", 2),
+            ("topic", "💡 Generate Topic", 3),
+            ("content", "📝 Generate Content", 4),
+            ("settings", "⚙️ Settings", 5)
         ]
         
         for key, text, col in tabs:
@@ -242,8 +242,8 @@ class YouTubeAnalyzerApp(ctk.CTk):
         ready, message = self.config_manager.is_ready_for_analysis()
         if not ready:
             messagebox.showerror(
-                "Cần có API key",
-                f"{message}\n\nVui lòng cấu hình API key trong tab Cài Đặt."
+                "API Keys Required",
+                f"{message}\n\nPlease configure your API keys in the Settings tab."
             )
             self.show_tab("settings")
             return
@@ -251,9 +251,9 @@ class YouTubeAnalyzerApp(ctk.CTk):
         # Check if YouTube module available
         if not YOUTUBE_MODULE_AVAILABLE:
             messagebox.showerror(
-                "Thiếu thư viện phụ thuộc",
-                "Module tích hợp YouTube không khả dụng!\n\n"
-                "Vui lòng cài đặt các gói cần thiết:\n"
+                "Missing Dependencies",
+                "YouTube integration module not available!\n\n"
+                "Please install required packages:\n"
                 "pip install google-api-python-client youtube-transcript-api pytube"
             )
             return
@@ -264,8 +264,8 @@ class YouTubeAnalyzerApp(ctk.CTk):
         
         if not youtube_keys:
             messagebox.showerror(
-                "Không có Youtube API key",
-                "Vui lòng thêm ít nhất một Youtube API key trong tab Cài Đặt."
+                "No YouTube API Keys",
+                "Please add at least one YouTube API key in Settings tab."
             )
             self.show_tab("settings")
             return
@@ -276,7 +276,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
             # Show analysis tab
             self.show_tab("analysis")
             
-            # Start real analysis with custom requirements
+            # Start real analysis
             self.youtube_manager.start_analysis(
                 analysis_config['urls'],
                 analysis_config['mode'],
@@ -285,14 +285,13 @@ class YouTubeAnalyzerApp(ctk.CTk):
                 analysis_config['include_transcript'],
                 analysis_config['include_comments'],
                 self.update_analysis_progress,
-                self.on_analysis_complete,
-                analysis_config.get('custom_requirements', '')  # Pass custom requirements
+                self.on_analysis_complete
             )
             
         except Exception as e:
             messagebox.showerror(
-                "Lỗi phân tích",
-                f"Không thể bắt đầu phân tích:\n{str(e)}"
+                "Analysis Error",
+                f"Failed to start analysis:\n{str(e)}"
             )
 
     def update_analysis_progress(self, progress_data: dict):
@@ -306,23 +305,16 @@ class YouTubeAnalyzerApp(ctk.CTk):
                 
     def on_analysis_complete(self, result_data: dict):
         """Handle analysis completion."""
-        print(f"DEBUG on_analysis_complete - result_data keys: {result_data.keys()}")
-        print(f"DEBUG - result_data status: {result_data.get('status')}")
-        print(f"DEBUG - result_data has data?: {'data' in result_data}")
-        
         self.after(0, self._handle_analysis_complete, result_data)
         
     def _handle_analysis_complete(self, result_data: dict):
         """Handle analysis completion in UI thread."""
-        print(f"DEBUG _handle_analysis_complete - result_data keys: {result_data.keys()}")
-        
         if "analysis" in self.tab_managers:
             self.tab_managers["analysis"].on_complete(result_data)
             
         # Store analysis data
         if result_data.get('status') == 'success':
             self.analysis_data = result_data.get('data', {})
-            print(f"DEBUG - Stored analysis_data: {self.analysis_data.keys() if self.analysis_data else 'Empty'}")
             
             # Update prompt tab if available
             if "prompt" in self.tab_managers:
@@ -388,7 +380,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
                             writer.writerows(videos)
                         messagebox.showinfo("Success", f"Videos exported to:\n{filename}")
                     else:
-                        messagebox.showwarning("Không có dữ liệu", "Không có dữ liệu video để xuất!")
+                        messagebox.showwarning("No Data", "No video data to export!")
                 except Exception as e:
                     messagebox.showerror("Export Error", f"Failed to export data: {e}")
 

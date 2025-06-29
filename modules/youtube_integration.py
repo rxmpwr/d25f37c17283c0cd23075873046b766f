@@ -1,101 +1,93 @@
 """
-YouTube Integration Module - Connects UI with YouTube Collector
+YouTube Integration Module - Manages YouTube data collection and AI analysis
 """
 
 import threading
-from typing import Dict, List, Callable, Optional
+import time
+from typing import List, Dict, Optional, Callable
 from datetime import datetime
 import logging
+import json
 
-from .youtube_collector import YouTubeCollector, extract_urls_from_text, validate_youtube_url
+# Import YouTube collector
+from modules.youtube_collector import YouTubeCollector
+
+# Import OpenAI for analysis
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("Warning: OpenAI not available. Install with: pip install openai")
 
 logger = logging.getLogger(__name__)
 
 
 class YouTubeAnalysisManager:
-    """Manages YouTube data collection and analysis."""
+    """Manages YouTube analysis workflow with AI integration."""
     
-    def __init__(self, youtube_keys: List[str], openai_keys: List[str] = None):
-        self.youtube_keys = youtube_keys
-        self.openai_keys = openai_keys or []
-        self.collector = None
+    def __init__(self, youtube_api_keys: List[str], openai_api_keys: List[str] = None):
+        """Initialize with API keys."""
+        self.youtube_api_keys = youtube_api_keys
+        self.openai_api_keys = openai_api_keys or []
+        
+        # Initialize YouTube collector
+        self.collector = YouTubeCollector(youtube_api_keys)
+        
+        # Initialize OpenAI client if available
+        self.openai_client = None
+        if OPENAI_AVAILABLE and self.openai_api_keys:
+            try:
+                self.openai_client = OpenAI(api_key=self.openai_api_keys[0])
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenAI client: {e}")
+        
+        # Progress tracking
+        self.progress_callback = None
+        self.complete_callback = None
+        self.start_time = None
         self.is_analyzing = False
-        self.current_thread = None
         
-        if youtube_keys:
-            self.collector = YouTubeCollector(youtube_keys)
+    def start_analysis(self, urls: List[str], mode: str = 'channel', 
+                      max_videos: int = 20, max_comments: int = 50,
+                      include_transcript: bool = True, include_comments: bool = True,
+                      progress_callback: Optional[Callable] = None,
+                      complete_callback: Optional[Callable] = None,
+                      custom_requirements: str = None):
+        """Start YouTube analysis in background thread."""
         
-    def start_analysis(
-        self,
-        urls: List[str],
-        analysis_mode: str = "channel",
-        max_videos: int = 20,
-        max_comments: int = 50,
-        include_transcript: bool = True,
-        include_comments: bool = True,
-        progress_callback: Callable = None,
-        completion_callback: Callable = None
-    ):
-        """Start YouTube data collection in background thread."""
-        
-        if self.is_analyzing:
-            logger.warning("Analysis already in progress")
-            return
-            
-        if not self.collector:
-            logger.error("No YouTube collector initialized")
-            if completion_callback:
-                completion_callback({
-                    'status': 'error',
-                    'message': 'YouTube collector not initialized. Check API keys.'
-                })
-            return
-            
+        self.progress_callback = progress_callback
+        self.complete_callback = complete_callback
         self.is_analyzing = True
+        self.start_time = time.time()
         
         # Run analysis in background thread
-        self.current_thread = threading.Thread(
-            target=self._run_analysis,
-            args=(urls, analysis_mode, max_videos, max_comments, 
-                  include_transcript, include_comments,
-                  progress_callback, completion_callback)
+        analysis_thread = threading.Thread(
+            target=self._perform_analysis,
+            args=(urls, mode, max_videos, max_comments, 
+                  include_transcript, include_comments, custom_requirements)
         )
-        self.current_thread.daemon = True
-        self.current_thread.start()
+        analysis_thread.daemon = True
+        analysis_thread.start()
         
-    def _run_analysis(
-        self,
-        urls: List[str],
-        analysis_mode: str,
-        max_videos: int,
-        max_comments: int,
-        include_transcript: bool,
-        include_comments: bool,
-        progress_callback: Callable,
-        completion_callback: Callable
-    ):
-        """Run the actual analysis."""
+    def _perform_analysis(self, urls: List[str], mode: str, max_videos: int, 
+                         max_comments: int, include_transcript: bool, 
+                         include_comments: bool, custom_requirements: str):
+        """Perform the actual analysis."""
         try:
-            # Separate channel and video URLs
+            # Initialize progress
+            self._update_progress("Đang khởi tạo...", 0)
+            
+            # Separate URLs by type
             channel_urls = []
             video_urls = []
             
             for url in urls:
-                is_valid, url_type = validate_youtube_url(url)
-                if is_valid:
-                    if url_type == "channel":
-                        channel_urls.append(url)
-                    elif url_type == "video":
-                        video_urls.append(url)
-                        
-            # Progress update
-            if progress_callback:
-                progress_callback({
-                    'status': 'collecting',
-                    'message': f'Found {len(channel_urls)} channels and {len(video_urls)} videos',
-                    'progress': 10
-                })
-                
+                if mode == 'channel':
+                    channel_urls.append(url)
+                else:
+                    video_urls.append(url)
+            
             # Collect data
             all_data = {
                 'channels': [],
@@ -105,196 +97,372 @@ class YouTubeAnalysisManager:
                 'collection_date': datetime.now().isoformat()
             }
             
-            # Collect channel data
-            if channel_urls and analysis_mode == "channel":
-                if progress_callback:
-                    progress_callback({
-                        'status': 'collecting',
-                        'message': 'Collecting channel data...',
-                        'progress': 20
-                    })
-                    
-                channel_data = self.collector.collect_channel_data(
+            # Process based on mode
+            if mode == 'channel' and channel_urls:
+                self._update_progress("Thu thập dữ liệu kênh...", 10)
+                all_data = self.collector.collect_channel_data(
                     channel_urls=channel_urls,
                     max_videos_per_channel=max_videos,
                     max_comments_per_video=max_comments,
                     include_transcripts=include_transcript,
                     include_comments=include_comments
                 )
-                
-                # Merge data
-                all_data['channels'].extend(channel_data.get('channels', []))
-                all_data['videos'].extend(channel_data.get('videos', []))
-                all_data['transcripts'].extend(channel_data.get('transcripts', []))
-                all_data['comments'].extend(channel_data.get('comments', []))
-                
-            # Collect video data
-            if video_urls:
-                if progress_callback:
-                    progress_callback({
-                        'status': 'collecting',
-                        'message': 'Collecting video data...',
-                        'progress': 50
-                    })
-                    
-                video_data = self.collector.collect_video_data(
+            elif video_urls:
+                self._update_progress("Thu thập dữ liệu video...", 10)
+                all_data = self.collector.collect_video_data(
                     video_urls=video_urls,
                     max_comments_per_video=max_comments,
                     include_transcripts=include_transcript,
                     include_comments=include_comments
                 )
-                
-                # Merge data
-                all_data['videos'].extend(video_data.get('videos', []))
-                all_data['transcripts'].extend(video_data.get('transcripts', []))
-                all_data['comments'].extend(video_data.get('comments', []))
-                
-            # Generate summary
-            if progress_callback:
-                progress_callback({
-                    'status': 'analyzing',
-                    'message': 'Analyzing collected data...',
-                    'progress': 80
-                })
-                
-            all_data['summary'] = self.collector._generate_summary(all_data)
             
-            # Calculate viral score
-            viral_score = self._calculate_viral_score(all_data)
+            # Update progress during collection
+            total_items = len(all_data.get('videos', []))
+            for i, video in enumerate(all_data.get('videos', [])):
+                progress = 10 + (70 * (i + 1) / max(total_items, 1))
+                self._update_progress(
+                    f"Đang xử lý video {i+1}/{total_items}...", 
+                    progress,
+                    videos_analyzed=i+1,
+                    comments_collected=len(all_data.get('comments', [])),
+                    transcripts_collected=len(all_data.get('transcripts', []))
+                )
             
-            # Final progress
-            if progress_callback:
-                progress_callback({
-                    'status': 'complete',
-                    'message': 'Analysis complete!',
-                    'progress': 100
-                })
-                
-            # Send completion callback
-            if completion_callback:
-                completion_callback({
+            # Analyze with AI if custom requirements provided
+            self._update_progress("Đang phân tích với AI...", 85)
+            
+            if custom_requirements and self.openai_client:
+                # Use AI analysis
+                analysis_result = self.analyze_with_ai(all_data, custom_requirements)
+            else:
+                # Fallback to structured analysis
+                viral_score = self._calculate_viral_score(all_data)
+                analysis_result = {
                     'status': 'success',
+                    'analysis_type': 'structured',
                     'data': all_data,
-                    'viral_score': viral_score,
-                    'message': f'Successfully analyzed {len(all_data["videos"])} videos'
-                })
-                
+                    'viral_score': viral_score
+                }
+            
+            # Complete
+            self._update_progress("Hoàn tất!", 100)
+            time.sleep(0.5)  # Brief pause
+            
+            self._on_complete(analysis_result)
+            
         except Exception as e:
             logger.error(f"Analysis error: {e}")
-            if completion_callback:
-                completion_callback({
-                    'status': 'error',
-                    'message': str(e),
-                    'error': str(e)
-                })
-                
+            self._on_complete({
+                'status': 'error',
+                'error': str(e)
+            })
         finally:
             self.is_analyzing = False
+    
+    def analyze_with_ai(self, youtube_data: Dict, custom_requirements: str) -> Dict:
+        """Analyze YouTube data with AI based on custom requirements."""
+        try:
+            # Check if OpenAI client is available
+            if not self.openai_client:
+                logger.warning("OpenAI client not initialized")
+                return {
+                    'status': 'error',
+                    'error': 'OpenAI API không được cấu hình'
+                }
             
+            # Prepare data summary for ChatGPT
+            data_summary = self._prepare_data_summary(youtube_data)
+            
+            # Create dynamic prompt based on user requirements
+            messages = [
+                {
+                    "role": "system",
+                    "content": """Bạn là chuyên gia phân tích YouTube content với khả năng:
+- Phân tích xu hướng và patterns trong content
+- Hiểu tâm lý audience và engagement
+- Đưa ra insights sâu sắc về chiến lược content
+- Provide actionable recommendations
+
+Hãy phân tích chi tiết theo yêu cầu của người dùng, sử dụng dữ liệu được cung cấp."""
+                },
+                {
+                    "role": "user", 
+                    "content": f"""
+Dữ liệu YouTube đã thu thập:
+{data_summary}
+
+YÊU CẦU PHÂN TÍCH CỤ THỂ:
+{custom_requirements}
+
+Hãy phân tích chi tiết theo yêu cầu trên. Format câu trả lời rõ ràng với:
+- Các insights chính
+- Số liệu minh họa cụ thể
+- Recommendations khả thi
+- Kết luận tổng quan
+"""
+                }
+            ]
+            
+            # Call ChatGPT
+            response = self.openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",  # or "gpt-4" if available
+                messages=messages,
+                max_tokens=2500,
+                temperature=0.7
+            )
+            
+            # Get raw response
+            ai_analysis = response.choices[0].message.content
+            
+            # Calculate viral score based on data
+            viral_score = self._calculate_viral_score(youtube_data)
+            
+            # Return dynamic result
+            return {
+                'status': 'success',
+                'analysis_type': 'dynamic',
+                'user_requirements': custom_requirements,
+                'ai_response': ai_analysis,
+                'raw_data': youtube_data,
+                'viral_score': viral_score,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"AI analysis error: {e}")
+            return {
+                'status': 'error',
+                'error': f'Lỗi phân tích AI: {str(e)}',
+                'analysis_type': 'dynamic'
+            }
+    
+    def _prepare_data_summary(self, youtube_data: Dict) -> str:
+        """Prepare concise data summary for AI analysis."""
+        summary = []
+        
+        # Channel info
+        channels = youtube_data.get('channels', [])
+        if channels:
+            summary.append("=== THÔNG TIN KÊNH ===")
+            for channel in channels:
+                summary.append(f"\nKênh: {channel.get('channel_title', 'N/A')}")
+                summary.append(f"- Subscribers: {channel.get('subscriber_count', 0):,}")
+                summary.append(f"- Tổng views: {channel.get('view_count', 0):,}")
+                summary.append(f"- Tổng videos: {channel.get('video_count', 0):,}")
+                summary.append(f"- Quốc gia: {channel.get('country', 'Unknown')}")
+        
+        # Videos analysis
+        videos = youtube_data.get('videos', [])
+        if videos:
+            summary.append(f"\n\n=== PHÂN TÍCH {len(videos)} VIDEO ===")
+            
+            # Overall stats
+            total_views = sum(v.get('view_count', 0) for v in videos)
+            total_likes = sum(v.get('like_count', 0) for v in videos)
+            total_comments = sum(v.get('comment_count', 0) for v in videos)
+            avg_views = total_views / len(videos) if videos else 0
+            avg_engagement = sum(
+                ((v.get('like_count', 0) + v.get('comment_count', 0)) / v.get('view_count', 1) * 100)
+                for v in videos if v.get('view_count', 0) > 0
+            ) / len(videos) if videos else 0
+            
+            summary.append(f"\nTổng quan:")
+            summary.append(f"- Tổng views: {total_views:,}")
+            summary.append(f"- Tổng likes: {total_likes:,}")
+            summary.append(f"- Tổng comments: {total_comments:,}")
+            summary.append(f"- Trung bình views/video: {avg_views:,.0f}")
+            summary.append(f"- Engagement rate trung bình: {avg_engagement:.2f}%")
+            
+            # Top videos by views
+            summary.append("\n\nTOP 10 VIDEO THEO VIEWS:")
+            sorted_videos = sorted(videos, key=lambda x: x.get('view_count', 0), reverse=True)
+            
+            for i, video in enumerate(sorted_videos[:10], 1):
+                summary.append(f"\n{i}. {video.get('title', 'N/A')}")
+                summary.append(f"   Views: {video.get('view_count', 0):,}")
+                summary.append(f"   Likes: {video.get('like_count', 0):,}")
+                summary.append(f"   Comments: {video.get('comment_count', 0):,}")
+                
+                # Engagement metrics
+                views = video.get('view_count', 0)
+                if views > 0:
+                    engagement = ((video.get('like_count', 0) + video.get('comment_count', 0)) / views * 100)
+                    like_ratio = (video.get('like_count', 0) / views * 100)
+                    summary.append(f"   Engagement: {engagement:.2f}% | Like ratio: {like_ratio:.2f}%")
+                
+                # Duration
+                duration = video.get('duration', 'N/A')
+                summary.append(f"   Duration: {duration}")
+                
+                # Tags if available
+                tags = video.get('tags', [])
+                if tags:
+                    summary.append(f"   Tags: {', '.join(tags[:5])}")
+                
+                # Transcript preview
+                video_id = video.get('video_id')
+                if video_id:
+                    transcript = next((t for t in youtube_data.get('transcripts', [])
+                                     if t.get('video_id') == video_id), None)
+                    if transcript:
+                        text_preview = ' '.join(transcript.get('full_text', '').split()[:30])
+                        summary.append(f"   Content preview: {text_preview}...")
+        
+        # Comments analysis
+        comments = youtube_data.get('comments', [])
+        if comments:
+            summary.append(f"\n\n=== PHÂN TÍCH {len(comments)} COMMENTS ===")
+            
+            # Sentiment indicators
+            positive_words = ['love', 'great', 'amazing', 'best', 'awesome', 'excellent']
+            negative_words = ['hate', 'bad', 'worst', 'terrible', 'awful']
+            
+            positive_count = sum(1 for c in comments 
+                               if any(word in c.get('text', '').lower() for word in positive_words))
+            negative_count = sum(1 for c in comments 
+                               if any(word in c.get('text', '').lower() for word in negative_words))
+            
+            summary.append(f"\nSentiment phân tích sơ bộ:")
+            summary.append(f"- Positive comments: {positive_count} ({positive_count/len(comments)*100:.1f}%)")
+            summary.append(f"- Negative comments: {negative_count} ({negative_count/len(comments)*100:.1f}%)")
+            
+            # Top comments
+            summary.append("\n\nTOP 10 COMMENTS (theo likes):")
+            top_comments = sorted(comments, key=lambda x: x.get('like_count', 0), reverse=True)[:10]
+            
+            for i, comment in enumerate(top_comments, 1):
+                comment_text = comment.get('text', '')[:200]
+                likes = comment.get('like_count', 0)
+                summary.append(f"\n{i}. \"{comment_text}...\"")
+                summary.append(f"   Likes: {likes}")
+                summary.append(f"   Author: {comment.get('author', 'Unknown')}")
+        
+        # Transcripts summary
+        transcripts = youtube_data.get('transcripts', [])
+        if transcripts:
+            summary.append(f"\n\n=== TRANSCRIPTS: {len(transcripts)} videos có phụ đề ===")
+            
+            # Language distribution
+            languages = {}
+            for t in transcripts:
+                lang = t.get('language', 'unknown')
+                languages[lang] = languages.get(lang, 0) + 1
+            
+            summary.append("\nNgôn ngữ phụ đề:")
+            for lang, count in languages.items():
+                summary.append(f"- {lang}: {count} videos")
+        
+        return '\n'.join(summary)
+    
     def _calculate_viral_score(self, data: Dict) -> float:
-        """Calculate overall viral potential score."""
+        """Calculate viral potential score based on various metrics."""
+        score = 0
+        weights = {
+            'views': 0.3,
+            'engagement': 0.3,
+            'growth': 0.2,
+            'consistency': 0.1,
+            'sentiment': 0.1
+        }
+        
         videos = data.get('videos', [])
         if not videos:
-            return 0.0
-            
-        total_score = 0
-        valid_videos = 0
+            return 0
         
+        # Views score (normalized by channel average)
+        total_views = sum(v.get('view_count', 0) for v in videos)
+        avg_views = total_views / len(videos) if videos else 0
+        
+        if avg_views > 1000000:
+            views_score = 100
+        elif avg_views > 500000:
+            views_score = 80
+        elif avg_views > 100000:
+            views_score = 60
+        elif avg_views > 50000:
+            views_score = 40
+        else:
+            views_score = 20
+        
+        # Engagement score
+        engagement_rates = []
         for video in videos:
             views = video.get('view_count', 0)
-            likes = video.get('like_count', 0)
-            comments = video.get('comment_count', 0)
-            
             if views > 0:
-                # Engagement rate
-                engagement_rate = ((likes + comments) / views) * 100
+                engagement = ((video.get('like_count', 0) + video.get('comment_count', 0)) / views * 100)
+                engagement_rates.append(engagement)
+        
+        avg_engagement = sum(engagement_rates) / len(engagement_rates) if engagement_rates else 0
+        engagement_score = min(avg_engagement * 10, 100)  # Cap at 100
+        
+        # Growth score (compare recent vs older videos)
+        if len(videos) >= 5:
+            recent_videos = sorted(videos, key=lambda x: x.get('published_at', ''), reverse=True)[:5]
+            older_videos = sorted(videos, key=lambda x: x.get('published_at', ''), reverse=True)[5:10]
+            
+            if older_videos:
+                recent_avg = sum(v.get('view_count', 0) for v in recent_videos) / len(recent_videos)
+                older_avg = sum(v.get('view_count', 0) for v in older_videos) / len(older_videos)
                 
-                # View-based score
-                view_score = min(30, views / 1000000 * 30)  # Max 30 points for 1M+ views
-                
-                # Engagement-based score
-                engagement_score = min(50, engagement_rate * 10)  # Max 50 points for 5%+ engagement
-                
-                # Like ratio score
-                like_ratio = (likes / views) * 100
-                like_score = min(20, like_ratio * 4)  # Max 20 points for 5%+ like ratio
-                
-                video_score = view_score + engagement_score + like_score
-                total_score += video_score
-                valid_videos += 1
-                
-        if valid_videos > 0:
-            return min(100, total_score / valid_videos)
+                if older_avg > 0:
+                    growth_rate = ((recent_avg - older_avg) / older_avg) * 100
+                    growth_score = min(max(growth_rate + 50, 0), 100)
+                else:
+                    growth_score = 50
+            else:
+                growth_score = 50
         else:
-            return 0.0
-            
-    def stop_analysis(self):
-        """Stop current analysis if running."""
-        if self.is_analyzing and self.current_thread:
-            # Note: Can't directly stop thread, but can set flag
-            self.is_analyzing = False
-            logger.info("Analysis stop requested")
-            
-    def export_data(self, format: str, filename: str) -> str:
-        """Export collected data to file."""
-        if not hasattr(self, 'last_collected_data'):
-            raise ValueError("No data to export")
-            
-        if format == "json":
-            YouTubeDataProcessor.export_to_json(self.last_collected_data, filename)
-        elif format == "csv":
-            YouTubeDataProcessor.export_to_csv(self.last_collected_data, filename)
+            growth_score = 50
+        
+        # Consistency score (regular uploads)
+        consistency_score = 70  # Default
+        
+        # Sentiment score from comments
+        comments = data.get('comments', [])
+        if comments:
+            positive_indicators = ['love', 'great', 'amazing', 'best', 'helpful', 'thank']
+            positive_count = sum(1 for c in comments 
+                               if any(indicator in c.get('text', '').lower() 
+                                     for indicator in positive_indicators))
+            sentiment_score = min((positive_count / len(comments)) * 200, 100)
         else:
-            raise ValueError(f"Unsupported format: {format}")
-            
-        return filename
-
-
-class YouTubeDataProcessor:
-    """Process YouTube data for export and display."""
+            sentiment_score = 50
+        
+        # Calculate weighted score
+        score = (
+            weights['views'] * views_score +
+            weights['engagement'] * engagement_score +
+            weights['growth'] * growth_score +
+            weights['consistency'] * consistency_score +
+            weights['sentiment'] * sentiment_score
+        )
+        
+        return round(score, 1)
     
-    @staticmethod
-    def export_to_json(data: Dict, filename: str):
-        """Export data to JSON file."""
-        import json
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    def _update_progress(self, task: str, progress: float, **kwargs):
+        """Update analysis progress."""
+        if self.progress_callback:
+            elapsed = time.time() - self.start_time if self.start_time else 0
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed % 60)
             
-    @staticmethod
-    def export_to_csv(data: Dict, filename: str):
-        """Export video data to CSV file."""
-        import csv
+            progress_data = {
+                'current_task': task,
+                'progress': progress,
+                'time_elapsed': f"{minutes}:{seconds:02d}",
+                **kwargs
+            }
+            
+            self.progress_callback(progress_data)
+    
+    def _on_complete(self, result: Dict):
+        """Handle analysis completion."""
+        self.is_analyzing = False
         
-        videos = data.get('videos', [])
-        if not videos:
-            return
-            
-        fieldnames = [
-            'video_id', 'title', 'channel_title', 'published_at',
-            'view_count', 'like_count', 'comment_count', 'duration',
-            'engagement_rate', 'category_id'
-        ]
-        
-        with open(filename, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            
-            for video in videos:
-                views = video.get('view_count', 1)
-                likes = video.get('like_count', 0)
-                comments = video.get('comment_count', 0)
-                engagement_rate = ((likes + comments) / views) * 100 if views > 0 else 0
-                
-                row = {
-                    'video_id': video.get('video_id', ''),
-                    'title': video.get('title', ''),
-                    'channel_title': video.get('channel_title', ''),
-                    'published_at': video.get('published_at', ''),
-                    'view_count': video.get('view_count', 0),
-                    'like_count': video.get('like_count', 0),
-                    'comment_count': video.get('comment_count', 0),
-                    'duration': video.get('duration', ''),
-                    'engagement_rate': f"{engagement_rate:.2f}",
-                    'category_id': video.get('category_id', '')
-                }
-                writer.writerow(row)
+        if self.complete_callback:
+            self.complete_callback(result)
+    
+    def stop_analysis(self):
+        """Stop ongoing analysis."""
+        self.is_analyzing = False
+        logger.info("Analysis stopped by user")
