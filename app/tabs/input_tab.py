@@ -23,6 +23,7 @@ class InputTabManager:
         self.analysis_mode = ctk.StringVar(value="channel")
         self.include_transcript = ctk.BooleanVar(value=True)
         self.include_comments = ctk.BooleanVar(value=True)
+        self.include_tags = ctk.BooleanVar(value=True)
         
         # Setup UI
         self.setup_ui()
@@ -339,7 +340,20 @@ class InputTabManager:
             checkmark_color="white"
         )
         self.comments_checkbox.pack(side="left", padx=10)
-        
+
+        self.include_tags = ctk.BooleanVar(value=True)  # Thêm biến cho tags
+        self.tags_checkbox = ctk.CTkCheckBox(
+            checkbox_frame,
+            text="✓ Bao gồm tags",
+            variable=self.include_tags,
+            font=ctk.CTkFont(size=13),
+            text_color="#2B2B2B",
+            fg_color="#2196F3",
+            hover_color="#1976D2",
+            checkmark_color="white"
+        )
+        self.tags_checkbox.pack(side="left", padx=10)
+
         # Analyze button
         analyze_btn = ctk.CTkButton(
             self.container,
@@ -640,6 +654,7 @@ class InputTabManager:
             'max_comments': max_comments,
             'include_transcript': self.include_transcript.get(),
             'include_comments': self.include_comments.get(),
+            'include_tags': self.include_tags.get(),
             'custom_requirements': custom_requirements
         }
         

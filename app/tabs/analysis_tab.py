@@ -335,6 +335,19 @@ class AnalysisTabManager:
                     )
                     engagement_label.pack(anchor="w")
         
+                if video.get('tags'):
+                    tags_text = f"🏷️ Tags: {', '.join(video.get('tags', [])[:5])}"
+                    if len(video.get('tags', [])) > 5:
+                        tags_text += f" (+{len(video.get('tags', [])) - 5} more)"
+                    
+                    tags_label = ctk.CTkLabel(
+                        video_info,
+                        text=tags_text,
+                        font=ctk.CTkFont(size=11),
+                        text_color="#757575"
+                    )
+                    tags_label.pack(anchor="w", pady=(2, 0))
+
         # 4. Additional requirements section
         req_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="#FFF3E0", corner_radius=10)
         req_frame.pack(fill="x", padx=20, pady=(0, 20))

@@ -47,10 +47,14 @@ class YouTubeAnalysisManager:
         self.complete_callback = None
         self.start_time = None
         self.is_analyzing = False
-        
-    def start_analysis(self, urls: List[str], mode: str = 'channel', 
-                      max_videos: int = 20, max_comments: int = 50,
-                      include_transcript: bool = True, include_comments: bool = True,
+
+    def start_analysis(self, 
+                      urls: List[str], 
+                      mode: str = 'channel', 
+                      max_videos: int = 20, 
+                      max_comments: int = 50,
+                      include_transcript: bool = True, 
+                      include_comments: bool = True,
                       progress_callback: Optional[Callable] = None,
                       complete_callback: Optional[Callable] = None,
                       custom_requirements: str = None):
@@ -61,18 +65,25 @@ class YouTubeAnalysisManager:
         self.is_analyzing = True
         self.start_time = time.time()
         
+
         # Run analysis in background thread
         analysis_thread = threading.Thread(
             target=self._perform_analysis,
             args=(urls, mode, max_videos, max_comments, 
-                  include_transcript, include_comments, custom_requirements)
+                  include_transcript, include_comments, custom_requirements)  # 7 arguments
         )
         analysis_thread.daemon = True
         analysis_thread.start()
         
-    def _perform_analysis(self, urls: List[str], mode: str, max_videos: int, 
-                         max_comments: int, include_transcript: bool, 
-                         include_comments: bool, custom_requirements: str):
+    def _perform_analysis(self, 
+                         urls: List[str], 
+                         mode: str, 
+                         max_videos: int, 
+                         max_comments: int, 
+                         include_transcript: bool, 
+                         include_comments: bool, 
+                         #include_tags: bool,  # THÊM PARAMETER
+                         custom_requirements: str):
         """Perform the actual analysis."""
         try:
             # Initialize progress
@@ -235,7 +246,7 @@ Hãy phân tích chi tiết theo yêu cầu trên. Format câu trả lời rõ r
                 'error': f'Lỗi phân tích AI: {str(e)}',
                 'analysis_type': 'dynamic'
             }
-    
+  
     def _prepare_data_summary(self, youtube_data: Dict) -> str:
         """Prepare concise data summary for AI analysis."""
         summary = []

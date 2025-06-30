@@ -364,7 +364,6 @@ class YouTubeAnalyzerApp(ctk.CTk):
             # Show analysis tab
             self.show_tab("analysis")
             
-            # Start real analysis
             self.youtube_manager.start_analysis(
                 analysis_config['urls'],
                 analysis_config['mode'],
@@ -374,9 +373,8 @@ class YouTubeAnalyzerApp(ctk.CTk):
                 analysis_config['include_comments'],
                 self.update_analysis_progress,
                 self.on_analysis_complete,
-                analysis_config.get('custom_requirements')
+                analysis_config.get('custom_requirements')  # Thêm dòng này
             )
-            
         except Exception as e:
             messagebox.showerror(
                 "Analysis Error",
