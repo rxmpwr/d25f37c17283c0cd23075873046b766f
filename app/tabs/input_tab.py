@@ -7,6 +7,8 @@ import customtkinter as ctk
 from tkinter import messagebox
 from typing import List, Dict, Callable
 import re
+import os
+from datetime import datetime
 
 
 class InputTabManager:
@@ -27,26 +29,12 @@ class InputTabManager:
         
     def setup_ui(self):
         """Setup the input tab UI."""
-        # Title
-        title_label = ctk.CTkLabel(
-            self.container,
-            text="Nhập URL Youtube",
-            font=ctk.CTkFont(size=24, weight="bold"),
-            text_color="#2B2B2B"
-        )
-        title_label.pack(pady=(20, 10))
+        # BỎ TITLE - Bắt đầu trực tiếp với Analysis mode
         
         # Analysis mode selection
         mode_frame = ctk.CTkFrame(self.container, fg_color="transparent")
-        mode_frame.pack(pady=(10, 20))
-        
-        mode_label = ctk.CTkLabel(
-            mode_frame,
-            text="Chế độ phân tích:",
-            font=ctk.CTkFont(size=14),
-            text_color="#666666"
-        )
-        mode_label.pack(side="left", padx=(0, 20))
+        mode_frame.pack(pady=(20, 20))
+       
         
         channel_radio = ctk.CTkRadioButton(
             mode_frame,
@@ -85,30 +73,27 @@ class InputTabManager:
         )
         input_label.pack(fill="x", padx=20, pady=(20, 10))
         
-        # URL text input
+        # URL text input với placeholder
         self.url_text = ctk.CTkTextbox(
             input_frame,
             height=120,
             font=ctk.CTkFont(size=13),
             fg_color="white",
-            text_color="#2B2B2B",
+            text_color="#999999",  # Màu xám cho placeholder
             border_width=1,
             border_color="#E0E0E0"
         )
         self.url_text.pack(fill="both", expand=True, padx=20, pady=(0, 10))
         
-        # Examples
-        examples_label = ctk.CTkLabel(
-            input_frame,
-            text="Examples:\n- https://www.youtube.com/channel/CHANNEL_ID\n- https://www.youtube.com/@username\n- https://www.youtube.com/@channelname\n- https://www.youtube.com/user/username",
-            font=ctk.CTkFont(size=11),
-            text_color="#999999",
-            justify="left",
-            anchor="w"
-        )
-        examples_label.pack(fill="x", padx=20, pady=(0, 20))
+        # Thêm placeholder text
+        self.url_placeholder = "Examples:\n- https://www.youtube.com/channel/CHANNEL_ID\n- https://www.youtube.com/@username\n- https://www.youtube.com/@channelname\n- https://www.youtube.com/user/username"
+        self.url_text.insert("1.0", self.url_placeholder)
         
-        # Custom analysis requirements section (NEW)
+        # Bind events cho URL placeholder
+        self.url_text.bind("<FocusIn>", self._on_url_focus_in)
+        self.url_text.bind("<FocusOut>", self._on_url_focus_out)
+        
+        # Custom analysis requirements section
         requirements_frame = ctk.CTkFrame(self.container, fg_color="#F5F5F5", corner_radius=10)
         requirements_frame.pack(fill="both", expand=True, padx=40, pady=(0, 20))
         
@@ -131,25 +116,28 @@ class InputTabManager:
         )
         requirements_hint.pack(fill="x", padx=20, pady=(0, 10))
         
-        # Custom requirements text input
+        # Custom requirements text input với placeholder
         self.requirements_text = ctk.CTkTextbox(
             requirements_frame,
             height=100,
             font=ctk.CTkFont(size=13),
             fg_color="white",
-            text_color="#2B2B2B",
+            text_color="#999999",  # Màu xám cho placeholder
             border_width=1,
             border_color="#E0E0E0",
             wrap="word"
         )
         self.requirements_text.pack(fill="both", expand=True, padx=20, pady=(0, 10))
         
+        # Thêm placeholder cho requirements
+        self.requirements_placeholder = "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện."
+        self.requirements_text.insert("1.0", self.requirements_placeholder)
        
         # Bind events for placeholder
         self.requirements_text.bind("<FocusIn>", self._on_requirements_focus_in)
         self.requirements_text.bind("<FocusOut>", self._on_requirements_focus_out)
         
-        # Example prompts
+        # Example prompts - Mẫu nhanh
         example_prompts_frame = ctk.CTkFrame(requirements_frame, fg_color="transparent")
         example_prompts_frame.pack(fill="x", padx=20, pady=(0, 20))
         
@@ -201,18 +189,6 @@ class InputTabManager:
         # Track selected templates
         self.selected_templates = set()
 
-        # Replace the template buttons section with checkboxes
-        example_prompts_frame = ctk.CTkFrame(requirements_frame, fg_color="transparent")
-        example_prompts_frame.pack(fill="x", padx=20, pady=(0, 20))
-
-        example_prompts_label = ctk.CTkLabel(
-            example_prompts_frame,
-            text="Mẫu nhanh:",
-            font=ctk.CTkFont(size=11),
-            text_color="#666666"
-        )
-        example_prompts_label.pack(side="left", padx=(0, 10))
-
         # Create checkboxes for templates
         for template_name in self.template_questions.keys():
             template_var = ctk.BooleanVar()
@@ -231,8 +207,6 @@ class InputTabManager:
             
             # Store reference to checkbox variable
             setattr(self, f"template_{template_name.replace(' ', '_')}_var", template_var)
-
-        # Quick template buttons
         
         # Action buttons
         buttons_frame = ctk.CTkFrame(self.container, fg_color="transparent")
@@ -377,10 +351,67 @@ class InputTabManager:
             font=ctk.CTkFont(size=18, weight="bold"),
             corner_radius=25
         )
-        analyze_btn.pack(pady=(10, 30))
+        analyze_btn.pack(pady=(10, 20))
+        
+        # Auto-save buttons frame (THÊM MỚI)
+        autosave_frame = ctk.CTkFrame(self.container, fg_color="transparent")
+        autosave_frame.pack(fill="x", padx=40, pady=(0, 30))
+
+        # Clear cache button
+        self.clear_cache_btn = ctk.CTkButton(
+            autosave_frame,
+            text="🗑️ Xóa Dữ Liệu Cũ",
+            command=self.clear_cache,
+            fg_color="#FF5252",
+            hover_color="#D32F2F",
+            width=200,
+            height=40,
+            font=ctk.CTkFont(size=14)
+        )
+        self.clear_cache_btn.pack(side="left", padx=(0, 10))
+
+        # Load last analysis button
+        self.load_last_btn = ctk.CTkButton(
+            autosave_frame,
+            text="📂 Tải Lại Kết Quả Cũ",
+            command=self.load_last_analysis,
+            fg_color="#4CAF50",
+            hover_color="#388E3C",
+            width=200,
+            height=40,
+            font=ctk.CTkFont(size=14)
+        )
+        self.load_last_btn.pack(side="left", padx=10)
+
+        # Cache info label
+        self.cache_info_label = ctk.CTkLabel(
+            autosave_frame,
+            text="",
+            font=ctk.CTkFont(size=12),
+            text_color="#666666"
+        )
+        self.cache_info_label.pack(side="left", padx=20)
+
+        # Check cache status on init
+        self.check_cache_status()
         
         # Bind text change event
         self.url_text.bind("<KeyRelease>", self._update_url_count)
+
+    def _on_url_focus_in(self, event):
+        """Handle focus in event for URL text."""
+        current_text = self.url_text.get("1.0", "end-1c").strip()
+        if current_text == self.url_placeholder.strip():
+            self.url_text.delete("1.0", "end")
+            self.url_text.configure(text_color="#2B2B2B")  # Màu đen cho text thật
+
+    def _on_url_focus_out(self, event):
+        """Handle focus out event for URL text."""
+        current_text = self.url_text.get("1.0", "end-1c").strip()
+        if not current_text:
+            self.url_text.insert("1.0", self.url_placeholder)
+            self.url_text.configure(text_color="#999999")  # Màu xám cho placeholder
+        self._update_url_count()  # Cập nhật số URLs
 
     def _toggle_template(self, template_name: str, var: ctk.BooleanVar):
         """Handle template checkbox toggle."""
@@ -401,7 +432,7 @@ class InputTabManager:
         
         if not self.selected_templates:
             # No templates selected, show placeholder
-            self.requirements_text.insert("1.0", "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện.")
+            self.requirements_text.insert("1.0", self.requirements_placeholder)
             self.requirements_text.configure(text_color="#999999")
         else:
             # Combine questions from selected templates
@@ -423,19 +454,16 @@ class InputTabManager:
    
     def _on_requirements_focus_in(self, event):
         """Handle focus in event for requirements text."""
-        current_text = self.requirements_text.get("1.0", "end-1c")
-        # Check both English and Vietnamese placeholders
-        if current_text in [
-            "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc.",
-            "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện."
-        ]:
+        current_text = self.requirements_text.get("1.0", "end-1c").strip()
+        if current_text == self.requirements_placeholder.strip():
             self.requirements_text.delete("1.0", "end")
             self.requirements_text.configure(text_color="#2B2B2B")
 
     def _on_requirements_focus_out(self, event):
         """Handle focus out event for requirements text."""
-        if not self.requirements_text.get("1.0", "end-1c").strip():
-            self.requirements_text.insert("1.0", "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện.")
+        current_text = self.requirements_text.get("1.0", "end-1c").strip()
+        if not current_text and not self.selected_templates:
+            self.requirements_text.insert("1.0", self.requirements_placeholder)
             self.requirements_text.configure(text_color="#999999")
     
     def _apply_template(self, template_text: str):
@@ -446,13 +474,21 @@ class InputTabManager:
     
     def _update_url_count(self, event=None):
         """Update URL count label."""
-        text = self.url_text.get("1.0", "end-1c")
-        urls = [line.strip() for line in text.split('\n') if line.strip()]
+        text = self.url_text.get("1.0", "end-1c").strip()
+        
+        # Kiểm tra nếu vẫn là placeholder
+        if text == self.url_placeholder.strip():
+            self.url_count_label.configure(text="0 URLs entered")
+            return
+            
+        urls = [line.strip() for line in text.split('\n') if line.strip() and line.strip().startswith('http')]
         self.url_count_label.configure(text=f"{len(urls)} URLs entered")
     
     def clear_urls(self):
         """Clear all URLs."""
         self.url_text.delete("1.0", "end")
+        self.url_text.insert("1.0", self.url_placeholder)
+        self.url_text.configure(text_color="#999999")
         self._update_url_count()
     
     def validate_urls(self):
@@ -503,27 +539,33 @@ class InputTabManager:
         if self.analysis_mode.get() == "channel":
             self.url_text.delete("1.0", "end")
             self.url_text.insert("1.0", "\n".join(sample_channels))
+            self.url_text.configure(text_color="#2B2B2B")
         else:
             self.url_text.delete("1.0", "end")
             self.url_text.insert("1.0", "\n".join(sample_videos))
+            self.url_text.configure(text_color="#2B2B2B")
         
         self._update_url_count()
     
     def get_urls(self) -> List[str]:
         """Get list of URLs from text widget."""
-        text = self.url_text.get("1.0", "end-1c")
-        urls = [line.strip() for line in text.split('\n') if line.strip()]
+        text = self.url_text.get("1.0", "end-1c").strip()
+        
+        # Kiểm tra nếu vẫn là placeholder
+        if text == self.url_placeholder.strip():
+            return []
+        
+        urls = [line.strip() for line in text.split('\n') if line.strip() and line.strip().startswith('http')]
         return urls
     
     def get_custom_requirements(self) -> str:
         """Get custom analysis requirements."""
         requirements = self.requirements_text.get("1.0", "end-1c").strip()
-        print(f"DEBUG: Raw requirements: '{requirements}'")  # Debug
         
-        # Check if it's the placeholder text
-        #placeholder = "E.g., Focus on audience engagement patterns, viral video characteristics, best posting times, content themes that resonate most, etc."
-        #if requirements == placeholder or requirements == "Mô tả những insights cụ thể bạn muốn từ phân tích. Để trống cho phân tích toàn diện.":
-        #    return ""
+        # Kiểm tra nếu vẫn là placeholder
+        if requirements == self.requirements_placeholder.strip():
+            return ""
+        
         return requirements
     
     def _is_valid_youtube_url(self, url: str) -> bool:
@@ -562,9 +604,9 @@ class InputTabManager:
             return
         
         # Validate all URLs
-        print("DEBUG: Validating URLs...")  # Thêm
+        print("DEBUG: Validating URLs...")
         invalid_urls = [url for url in urls if not self._is_valid_youtube_url(url)]
-        print(f"DEBUG: Invalid URLs: {invalid_urls}")  # Thêm
+        print(f"DEBUG: Invalid URLs: {invalid_urls}")
         
         if invalid_urls:
             response = messagebox.askyesno(
@@ -580,17 +622,17 @@ class InputTabManager:
             return
         
         # Get parameters
-        print("DEBUG: Getting parameters...")  # Thêm
+        print("DEBUG: Getting parameters...")
         try:
             max_videos = int(self.max_videos_entry.get())
             max_comments = int(self.max_comments_entry.get())
-            print(f"DEBUG: max_videos={max_videos}, max_comments={max_comments}")  # Thêm
+            print(f"DEBUG: max_videos={max_videos}, max_comments={max_comments}")
         except ValueError:
             messagebox.showerror("Tham số không hợp lệ", "Số video và bình luận tối đa phải là số.")
             return
         
         # Prepare analysis configuration
-        print("DEBUG: Preparing analysis config...")  # Thêm
+        print("DEBUG: Preparing analysis config...")
         analysis_config = {
             'urls': urls,
             'mode': self.analysis_mode.get(),
@@ -601,13 +643,87 @@ class InputTabManager:
             'custom_requirements': custom_requirements
         }
         
-        print(f"DEBUG: Analysis config: {analysis_config}")  # Thêm
+        print(f"DEBUG: Analysis config: {analysis_config}")
         
         # Call the analyze callback
-        print("DEBUG: Calling analyze_callback...")  # Thêm
+        print("DEBUG: Calling analyze_callback...")
         self.analyze_callback(analysis_config)
-        print("DEBUG: analyze_callback completed")  # Thêm
+        print("DEBUG: analyze_callback completed")
+    
+    def clear_cache(self):
+        """Clear cached analysis data."""
+        try:
+            cache_path = "cache/last_analysis.json"
+            if os.path.exists(cache_path):
+                # Ask for confirmation
+                result = messagebox.askyesno(
+                    "Xác nhận xóa",
+                    "Bạn có chắc muốn xóa dữ liệu phân tích đã lưu?\n"
+                    "Hành động này không thể hoàn tác."
+                )
+                
+                if result:
+                    os.remove(cache_path)
+                    messagebox.showinfo(
+                        "Thành công",
+                        "Đã xóa dữ liệu phân tích cũ."
+                    )
+                    self.check_cache_status()
+            else:
+                messagebox.showinfo(
+                    "Thông báo",
+                    "Không có dữ liệu cũ để xóa."
+                )
+        except Exception as e:
+            messagebox.showerror(
+                "Lỗi",
+                f"Không thể xóa dữ liệu: {str(e)}"
+            )
+
+    def load_last_analysis(self):
+        """Load last analysis from cache."""
+        try:
+            # Get reference to main app through parent hierarchy
+            app = self.parent_frame.master.master  # Navigate to main window
+            
+            # Check if cache exists
+            if os.path.exists("cache/last_analysis.json"):
+                app.load_last_analysis()
+                app.show_tab("analysis")
+            else:
+                messagebox.showinfo(
+                    "Không có dữ liệu",
+                    "Không tìm thấy kết quả phân tích nào được lưu."
+                )
+        except Exception as e:
+            messagebox.showerror(
+                "Lỗi",
+                f"Không thể tải dữ liệu: {str(e)}"
+            )
+
+    def check_cache_status(self):
+        """Check if cache exists and update button states."""
+        cache_exists = os.path.exists("cache/last_analysis.json")
         
+        if cache_exists:
+            self.clear_cache_btn.configure(state="normal")
+            self.load_last_btn.configure(state="normal")
+            
+            # Show cache info
+            try:
+                cache_stat = os.stat("cache/last_analysis.json")
+                cache_time = datetime.fromtimestamp(cache_stat.st_mtime)
+                cache_size = cache_stat.st_size / 1024  # KB
+                
+                self.cache_info_label.configure(
+                    text=f"💾 Dữ liệu đã lưu: {cache_time.strftime('%d/%m/%Y %H:%M')} ({cache_size:.1f} KB)"
+                )
+            except:
+                pass
+        else:
+            self.clear_cache_btn.configure(state="disabled")
+            self.load_last_btn.configure(state="disabled")
+            self.cache_info_label.configure(text="")
     
     def show(self):
         """Show the tab."""

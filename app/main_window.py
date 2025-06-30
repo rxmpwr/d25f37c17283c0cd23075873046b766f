@@ -1,5 +1,5 @@
 """
-Main window class for YouTube Analyzer Pro - Fixed Version
+Main window class for YouTube Analyzer Pro - Fixed Version with Auto-save
 """
 
 import customtkinter as ctk
@@ -9,6 +9,7 @@ from typing import Dict, Optional
 from tkinter import messagebox
 import json
 import csv
+import os
 
 # Import API Config Manager
 import sys
@@ -51,7 +52,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("Viral Youtube Content Creator")
+        self.title("Viral YouTube Analyzer Pro")
         self.geometry("1500x900")
         self.minsize(1400, 800)
         
@@ -68,6 +69,9 @@ class YouTubeAnalyzerApp(ctk.CTk):
         self.generated_content = {}
         self.youtube_manager = None
         
+        # Auto-save file path
+        self.autosave_path = "cache/last_analysis.json"
+        
         # Initialize prompt generator
         if PROMPTS_MODULE_AVAILABLE:
             self.prompt_generator = PromptGenerator()
@@ -78,6 +82,90 @@ class YouTubeAnalyzerApp(ctk.CTk):
         
         # Setup UI
         self.setup_ui()
+        
+        # Load last analysis if exists
+        self.load_last_analysis()
+        
+        # Bind close event to save before exit
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+    def on_closing(self):
+        """Handle window closing event."""
+        # Save current analysis if exists
+        if self.analysis_data:
+            self.save_analysis_data()
+        self.destroy()
+        
+    def save_analysis_data(self):
+        """Auto-save current analysis data."""
+        try:
+            # Create cache directory if not exists
+            os.makedirs("cache", exist_ok=True)
+            
+            # Prepare data to save
+            save_data = {
+                'analysis_data': self.analysis_data,
+                'generated_content': self.generated_content,
+                'current_prompts': self.current_prompts,
+                'saved_at': datetime.now().isoformat(),
+                'version': '1.0'
+            }
+            
+            # Save to file
+            with open(self.autosave_path, 'w', encoding='utf-8') as f:
+                json.dump(save_data, f, ensure_ascii=False, indent=2)
+                
+            print(f"Analysis data auto-saved to {self.autosave_path}")
+            
+        except Exception as e:
+            print(f"Error saving analysis data: {e}")
+            
+    def load_last_analysis(self):
+        """Load last analysis data if exists."""
+        try:
+            if os.path.exists(self.autosave_path):
+                with open(self.autosave_path, 'r', encoding='utf-8') as f:
+                    save_data = json.load(f)
+                    
+                # Restore data
+                self.analysis_data = save_data.get('analysis_data', {})
+                self.generated_content = save_data.get('generated_content', {})
+                self.current_prompts = save_data.get('current_prompts', {})
+                
+                # Check if data is not empty
+                if self.analysis_data:
+                    saved_time = save_data.get('saved_at', '')
+                    
+                    # Show notification
+                    self.after(1000, lambda: messagebox.showinfo(
+                        "Đã khôi phục dữ liệu",
+                        f"Đã tải lại kết quả phân tích từ lần trước\n"
+                        f"Lưu lúc: {saved_time[:19].replace('T', ' ')}\n\n"
+                        f"Bạn có thể xem lại trong tab 'Kết Quả Phân Tích'"
+                    ))
+                    
+                    # Update analysis tab with loaded data
+                    self.after(500, self._restore_analysis_ui)
+                    
+                    print(f"Loaded last analysis from {self.autosave_path}")
+                    
+        except Exception as e:
+            print(f"Error loading last analysis: {e}")
+            
+    def _restore_analysis_ui(self):
+        """Restore analysis UI with loaded data."""
+        if "analysis" in self.tab_managers and self.analysis_data:
+            # Simulate analysis complete to update UI
+            result_data = {
+                'status': 'success',
+                'data': self.analysis_data,
+                'restored': True  # Flag to indicate restored data
+            }
+            self.tab_managers["analysis"].on_complete(result_data)
+            
+            # Update prompt tab if available
+            if "prompt" in self.tab_managers:
+                self.tab_managers["prompt"].on_analysis_ready()
         
     def setup_ui(self):
         """Setup main UI structure."""
@@ -114,7 +202,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
         # Title
         title_label = ctk.CTkLabel(
             header_frame,
-            text="Viral Youtube Content Creator",
+            text="Viral YouTube Content Creator",
             font=ctk.CTkFont(size=32, weight="bold"),
             text_color="#2B2B2B"
         )
@@ -242,8 +330,8 @@ class YouTubeAnalyzerApp(ctk.CTk):
         ready, message = self.config_manager.is_ready_for_analysis()
         if not ready:
             messagebox.showerror(
-                "Cần có API key",
-                f"{message}\n\nVui lòng cấu hình API key trong tab Cài Đặt."
+                "API Keys Required",
+                f"{message}\n\nPlease configure your API keys in the Settings tab."
             )
             self.show_tab("settings")
             return
@@ -251,9 +339,9 @@ class YouTubeAnalyzerApp(ctk.CTk):
         # Check if YouTube module available
         if not YOUTUBE_MODULE_AVAILABLE:
             messagebox.showerror(
-                "Thiếu thư viện phụ thuộc",
-                "Module tích hợp YouTube không khả dụng!\n\n"
-                "Vui lòng cài đặt các gói cần thiết:\n"
+                "Missing Dependencies",
+                "YouTube integration module not available!\n\n"
+                "Please install required packages:\n"
                 "pip install google-api-python-client youtube-transcript-api pytube"
             )
             return
@@ -264,8 +352,8 @@ class YouTubeAnalyzerApp(ctk.CTk):
         
         if not youtube_keys:
             messagebox.showerror(
-                "Không có Youtube API key",
-                "Vui lòng thêm ít nhất một Youtube API key trong tab Cài Đặt."
+                "No YouTube API Keys",
+                "Please add at least one YouTube API key in Settings tab."
             )
             self.show_tab("settings")
             return
@@ -276,7 +364,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
             # Show analysis tab
             self.show_tab("analysis")
             
-            # Start real analysis with custom requirements
+            # Start real analysis
             self.youtube_manager.start_analysis(
                 analysis_config['urls'],
                 analysis_config['mode'],
@@ -286,13 +374,13 @@ class YouTubeAnalyzerApp(ctk.CTk):
                 analysis_config['include_comments'],
                 self.update_analysis_progress,
                 self.on_analysis_complete,
-                analysis_config.get('custom_requirements', '')  # Pass custom requirements
+                analysis_config.get('custom_requirements')
             )
             
         except Exception as e:
             messagebox.showerror(
-                "Lỗi phân tích",
-                f"Không thể bắt đầu phân tích:\n{str(e)}"
+                "Analysis Error",
+                f"Failed to start analysis:\n{str(e)}"
             )
 
     def update_analysis_progress(self, progress_data: dict):
@@ -306,23 +394,19 @@ class YouTubeAnalyzerApp(ctk.CTk):
                 
     def on_analysis_complete(self, result_data: dict):
         """Handle analysis completion."""
-        print(f"DEBUG on_analysis_complete - result_data keys: {result_data.keys()}")
-        print(f"DEBUG - result_data status: {result_data.get('status')}")
-        print(f"DEBUG - result_data has data?: {'data' in result_data}")
-        
         self.after(0, self._handle_analysis_complete, result_data)
         
     def _handle_analysis_complete(self, result_data: dict):
         """Handle analysis completion in UI thread."""
-        print(f"DEBUG _handle_analysis_complete - result_data keys: {result_data.keys()}")
-        
         if "analysis" in self.tab_managers:
             self.tab_managers["analysis"].on_complete(result_data)
             
         # Store analysis data
         if result_data.get('status') == 'success':
             self.analysis_data = result_data.get('data', {})
-            print(f"DEBUG - Stored analysis_data: {self.analysis_data.keys() if self.analysis_data else 'Empty'}")
+            
+            # Auto-save analysis data
+            self.save_analysis_data()
             
             # Update prompt tab if available
             if "prompt" in self.tab_managers:
@@ -388,7 +472,7 @@ class YouTubeAnalyzerApp(ctk.CTk):
                             writer.writerows(videos)
                         messagebox.showinfo("Success", f"Videos exported to:\n{filename}")
                     else:
-                        messagebox.showwarning("Không có dữ liệu", "Không có dữ liệu video để xuất!")
+                        messagebox.showwarning("No Data", "No video data to export!")
                 except Exception as e:
                     messagebox.showerror("Export Error", f"Failed to export data: {e}")
 
@@ -400,6 +484,8 @@ class YouTubeAnalyzerApp(ctk.CTk):
     def set_current_prompts(self, prompts: Dict):
         """Set current prompts."""
         self.current_prompts = prompts
+        # Auto-save when prompts are updated
+        self.save_analysis_data()
 
     # Real API implementations for other features
     def generate_topics(self, config: Dict):

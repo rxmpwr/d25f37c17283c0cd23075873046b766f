@@ -400,7 +400,7 @@ class AnalysisTabManager:
     def _show_dynamic_results(self, analysis_data: Dict):
         """Show dynamic AI analysis results."""
         
-        # Raw data summary - MOVED TO TOP (thay cho phần yêu cầu)
+        # Raw data summary
         raw_data = analysis_data.get('raw_data', {})
         videos = raw_data.get('videos', [])
         
@@ -431,7 +431,7 @@ class AnalysisTabManager:
         )
         summary_label.pack(padx=20, pady=(0, 15))
         
-        # AI Response - Main content (giữ nguyên)
+        # AI Response - Main content
         response_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="#FFFFFF", corner_radius=10)
         response_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         
@@ -459,7 +459,7 @@ class AnalysisTabManager:
         response_text.insert("1.0", ai_response)
         response_text.configure(state="disabled")
         
-        # Strategy Box (nếu có)
+        # Strategy Box - TỰ ĐỘNG TẠO
         strategy_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="#E8F5E9", corner_radius=10)
         strategy_frame.pack(fill="x", padx=20, pady=(0, 20))
         
@@ -471,32 +471,22 @@ class AnalysisTabManager:
         )
         strategy_title.pack(pady=(20, 15))
         
-        # Strategy content frame
-        strategy_content_frame = ctk.CTkFrame(strategy_frame, fg_color="#FFFFFF", corner_radius=8)
-        strategy_content_frame.pack(fill="both", padx=20, pady=(0, 20))
-        
-        # Generate strategy button
-        generate_strategy_btn = ctk.CTkButton(
-            strategy_content_frame,
-            text="🎯 Tạo Chiến Lược Phát Triển",
-            command=lambda: self._generate_strategy(analysis_data),
-            fg_color="#4CAF50",
-            hover_color="#388E3C",
-            width=300,
-            height=50,
-            font=ctk.CTkFont(size=16, weight="bold")
+        # Loading indicator
+        loading_label = ctk.CTkLabel(
+            strategy_frame,
+            text="🔄 Đang tạo chiến lược phát triển...",
+            font=ctk.CTkFont(size=16),
+            text_color="#1976D2"
         )
-        generate_strategy_btn.pack(pady=50)
+        loading_label.pack(pady=50)
         
-        # Info text
-        info_label = ctk.CTkLabel(
-            strategy_content_frame,
-            text="Click để AI tạo chiến lược phát triển kênh YouTube dựa trên phân tích trên",
-            font=ctk.CTkFont(size=13),
-            text_color="#666666"
-        )
-        info_label.pack(pady=(0, 30))
+        # Update UI first
+        #self.update_idletasks()
         
+        # Auto generate strategy in background  
+        self._auto_generate_strategy(analysis_data, strategy_frame, loading_label)
+    
+                
         # Additional requirements section (giữ nguyên)
         additional_req_frame = ctk.CTkFrame(self.scrollable_frame, fg_color="#FFF3E0", corner_radius=10)
         additional_req_frame.pack(fill="x", padx=20, pady=(0, 20))
@@ -559,8 +549,8 @@ class AnalysisTabManager:
         )
         create_prompts_btn.pack(side="right", padx=5)
 
-    def _generate_strategy(self, analysis_data: Dict):
-        """Generate YouTube growth strategy using AI."""
+    def _auto_generate_strategy(self, analysis_data: Dict, strategy_frame: ctk.CTkFrame, loading_label: ctk.CTkLabel):
+        """Auto generate YouTube growth strategy using AI."""
         # Get AI response from analysis
         ai_analysis = analysis_data.get('ai_response', '')
         
@@ -625,81 +615,84 @@ class AnalysisTabManager:
     """
         
         try:
-            # Show loading
-            for widget in self.scrollable_frame.winfo_children():
-                if isinstance(widget, ctk.CTkFrame) and "Chiến lược" in str(widget.winfo_children()):
-                    # Find strategy frame and update
-                    for child in widget.winfo_children():
-                        if isinstance(child, ctk.CTkFrame):
-                            child.destroy()
-                            
-                    loading_label = ctk.CTkLabel(
-                        widget,
-                        text="🔄 Đang tạo chiến lược phát triển...",
-                        font=ctk.CTkFont(size=16),
-                        text_color="#1976D2"
-                    )
-                    loading_label.pack(pady=50)
-                    widget.update()
-                    
-                    # Call OpenAI API
-                    from openai import OpenAI
-                    client = OpenAI()  # Assumes API key is set
-                    
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "Bạn là chuyên gia YouTube growth strategy với 10+ năm kinh nghiệm giúp các kênh phát triển. Hãy đưa ra chiến lược cụ thể, khả thi và có thể action ngay."
-                            },
-                            {
-                                "role": "user",
-                                "content": strategy_prompt
-                            }
-                        ],
-                        max_tokens=2500,
-                        temperature=0.7
-                    )
-                    
-                    strategy_content = response.choices[0].message.content
-                    self._strategy_content = strategy_content
-                    
-                    # Update UI with strategy
-                    loading_label.destroy()
-                    
-                    strategy_content_frame = ctk.CTkFrame(widget, fg_color="#FFFFFF", corner_radius=8)
-                    strategy_content_frame.pack(fill="both", padx=20, pady=(0, 20))
-                    
-                    strategy_text = ctk.CTkTextbox(
-                        strategy_content_frame,
-                        font=ctk.CTkFont(size=14),
-                        fg_color="#FAFAFA",
-                        text_color="#212121",
-                        wrap="word",
-                        height=500
-                    )
-                    strategy_text.pack(fill="both", expand=True, padx=15, pady=15)
-                    strategy_text.insert("1.0", strategy_content)
-                    strategy_text.configure(state="disabled")
-                    
-                    # Add export button
-                    export_frame = ctk.CTkFrame(strategy_content_frame, fg_color="transparent")
-                    export_frame.pack(fill="x", padx=15, pady=(0, 15))
-                    
-                    export_strategy_btn = ctk.CTkButton(
-                        export_frame,
-                        text="📥 Xuất Chiến Lược",
-                        command=lambda: self._export_strategy(strategy_content),
-                        fg_color="#2196F3",
-                        hover_color="#1976D2",
-                        width=150,
-                        height=35
-                    )
-                    export_strategy_btn.pack(side="right")
-                    
+            # Call OpenAI API
+            from openai import OpenAI
+            
+            # Get OpenAI client from config
+            from api_config import get_openai_keys
+            openai_keys = get_openai_keys()
+            
+            if openai_keys:
+                client = OpenAI(api_key=openai_keys[0])
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Bạn là chuyên gia YouTube growth strategy với 10+ năm kinh nghiệm giúp các kênh phát triển. Hãy đưa ra chiến lược cụ thể, khả thi và có thể action ngay."
+                        },
+                        {
+                            "role": "user",
+                            "content": strategy_prompt
+                        }
+                    ],
+                    max_tokens=2500,
+                    temperature=0.7
+                )
+                
+                strategy_content = response.choices[0].message.content
+                self._strategy_content = strategy_content
+                
+                # Remove loading label
+                loading_label.destroy()
+                
+                # Create content frame
+                strategy_content_frame = ctk.CTkFrame(strategy_frame, fg_color="#FFFFFF", corner_radius=8)
+                strategy_content_frame.pack(fill="both", padx=20, pady=(0, 20))
+                
+                # Display strategy
+                strategy_text = ctk.CTkTextbox(
+                    strategy_content_frame,
+                    font=ctk.CTkFont(size=14),
+                    fg_color="#FAFAFA",
+                    text_color="#212121",
+                    wrap="word",
+                    height=500
+                )
+                strategy_text.pack(fill="both", expand=True, padx=15, pady=15)
+                strategy_text.insert("1.0", strategy_content)
+                strategy_text.configure(state="disabled")
+                
+                # Add export button
+                export_frame = ctk.CTkFrame(strategy_content_frame, fg_color="transparent")
+                export_frame.pack(fill="x", padx=15, pady=(0, 15))
+                
+                export_strategy_btn = ctk.CTkButton(
+                    export_frame,
+                    text="📥 Xuất Chiến Lược",
+                    command=lambda: self._export_strategy(strategy_content),
+                    fg_color="#2196F3",
+                    hover_color="#1976D2",
+                    width=150,
+                    height=35
+                )
+                export_strategy_btn.pack(side="right")
+                
+            else:
+                # No OpenAI key, show error
+                loading_label.configure(
+                    text="❌ Không thể tạo chiến lược: Thiếu OpenAI API key",
+                    text_color="#F44336"
+                )
+                
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể tạo chiến lược: {str(e)}")
+            # Show error
+            loading_label.configure(
+                text=f"❌ Lỗi: {str(e)}",
+                text_color="#F44336"
+            )
+            print(f"Strategy generation error: {e}")
 
     def _export_strategy(self, content: str):
         """Export strategy to file."""
